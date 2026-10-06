@@ -33,11 +33,15 @@ class AuthController extends BaseApiController
         }
 
         // Resolve employee record by employee_full_id, email, or employee_id
-        $employee = DB::table('employees')
+        $employeeQuery = DB::table('employees')
             ->where('employee_full_id', $identifier)
-            ->orWhere('email', $identifier)
-            ->orWhere('employee_id', $identifier)
-            ->first();
+            ->orWhere('email', $identifier);
+
+        if (is_numeric($identifier)) {
+            $employeeQuery->orWhere('employee_id', (int) $identifier);
+        }
+
+        $employee = $employeeQuery->first();
 
         // Check against users table
         $user = User::where('email', $identifier)->first();

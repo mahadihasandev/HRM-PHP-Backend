@@ -26,9 +26,12 @@
 /storage/framework/testing/*
 !/storage/framework/testing/.gitignore
 
-# SQLite journals / temporary files
+# SQLite files (migrated to Supabase PostgreSQL)
+*.sqlite
+*.sqlite3
 *.sqlite-journal
 *.sqlite3-journal
+/database/*.sqlite
 
 # IDE and Editor files
 .DS_Store
