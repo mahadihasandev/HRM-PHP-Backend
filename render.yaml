@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: hrm-backend
+    runtime: php
+    region: oregon
+    plan: starter
+    buildCommand: composer install --no-dev --optimize-autoloader && php artisan config:cache && php artisan route:cache
+    startCommand: php artisan serve --host=0.0.0.0 --port=$PORT
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_KEY
+        generateValue: true
+      - key: FORCE_HTTPS
+        value: true
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_SSLMODE
+        value: require
+      - key: CACHE_STORE
+        value: redis
+      - key: REDIS_CLIENT
+        value: predis
