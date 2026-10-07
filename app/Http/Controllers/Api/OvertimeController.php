@@ -17,58 +17,7 @@ class OvertimeController extends BaseApiController
      */
     protected function authorizeOvertimeManager(Request $request): ?object
     {
-        $operatorId = $request->header('X-Operator-Id')
-            ?? $request->input('operator_id')
-            ?? $request->header('X-Employee-Id')
-            ?? $request->query('operator_id');
-
-        $roleHeader = strtolower((string) ($request->header('X-Admin-Role') ?? $request->header('X-User-Role') ?? ''));
-        if (in_array($roleHeader, ['admin', 'superadmin', 'hr', 'hr_manager', 'director'])) {
-            return (object) [
-                'employee_full_id' => $operatorId ?: 'SMT-0001',
-                'name' => 'System Administrator',
-                'department' => 'Administration',
-                'role' => 'Administrator',
-            ];
-        }
-
-        if (!$operatorId) {
-            return null;
-        }
-
-        if ($operatorId === 'SMT-0001') {
-            return (object) [
-                'employee_full_id' => 'SMT-0001',
-                'name' => 'System Administrator',
-                'department' => 'Administration',
-                'role' => 'Master Administrator',
-            ];
-        }
-
-        $emp = DB::table('employees')
-            ->where('employee_full_id', $operatorId)
-            ->orWhere('id', $operatorId)
-            ->first();
-
-        if (!$emp) {
-            return null;
-        }
-
-        // Allowed departments: Administration, Human Resources, Management, Executive
-        if (in_array($emp->department, ['Administration', 'Human Resources', 'Management', 'Executive'])) {
-            return $emp;
-        }
-
-        // High officials by designation: Director, Head, CEO, COO, GM, General Manager, VP
-        $highOfficialKeywords = ['director', 'head', 'ceo', 'coo', 'general manager', 'gm', 'vice president', 'chief'];
-        $desigLower = strtolower($emp->designation ?? '');
-        foreach ($highOfficialKeywords as $keyword) {
-            if (str_contains($desigLower, $keyword)) {
-                return $emp;
-            }
-        }
-
-        return null;
+        return $request->attributes->get('employee_actor');
     }
 
     /**
@@ -92,7 +41,7 @@ class OvertimeController extends BaseApiController
         $department = $request->query('department');
         $search = $request->query('search');
 
-        $query = DB::table('employees')->where('status', 'Active');
+        $query = DB::table('employees')->where('company_id', $request->attributes->get('employee_actor')->company_id)->where('status', 'Active');
 
         if ($department && $department !== 'all') {
             $query->where('department', $department);
@@ -218,7 +167,7 @@ class OvertimeController extends BaseApiController
         $newRate = (float) $request->input('overtime_rate');
         $reason = $request->input('reason', 'Updated by authorized HR/Admin');
 
-        $emp = DB::table('employees')->where('employee_full_id', $fullId)->first();
+        $emp = DB::table('employees')->where('company_id', $manager->company_id)->where('employee_full_id', $fullId)->first();
         if (!$emp) {
             return response()->json([
                 'status' => false,
@@ -287,7 +236,7 @@ class OvertimeController extends BaseApiController
         $department = $request->input('department');
         $fixedRate = (float) $request->input('fixed_rate', 250);
 
-        $query = DB::table('employees')->where('status', 'Active');
+        $query = DB::table('employees')->where('company_id', $request->attributes->get('employee_actor')->company_id)->where('status', 'Active');
         if ($department && $department !== 'all') {
             $query->where('department', $department);
         }
@@ -337,7 +286,7 @@ class OvertimeController extends BaseApiController
      */
     public function getLogs(Request $request): JsonResponse
     {
-        $logs = DB::table('overtime_rate_logs')
+        $logs = DB::table('overtime_rate_logs')->whereIn('employee_full_id', DB::table('employees')->where('company_id', $request->attributes->get('employee_actor')->company_id)->select('employee_full_id'))
             ->orderByDesc('id')
             ->limit(50)
             ->get();
@@ -358,7 +307,7 @@ class OvertimeController extends BaseApiController
             ->where('month', $month)
             ->first();
 
-        if (!$payslip) {
+        if (!$payslip || in_array(strtolower($payslip->status), ['paid', 'approved'], true)) {
             return;
         }
 

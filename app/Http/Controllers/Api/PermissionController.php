@@ -19,6 +19,7 @@ class PermissionController extends BaseApiController
         ['key' => 'module.employees', 'name' => 'Employee Directory', 'module' => 'employees', 'category' => 'navigation', 'description' => 'Browse personnel records, designations, and public contact cards'],
         ['key' => 'module.attendance', 'name' => 'Attendance & Job Card', 'module' => 'attendance', 'category' => 'navigation', 'description' => 'Inspect employee monthly attendance, biometrics, and shift logs'],
         ['key' => 'module.leave', 'name' => 'Leave Management', 'module' => 'leave', 'category' => 'navigation', 'description' => 'View annual and medical leave balances under BLA 2006 compliance'],
+        ['key' => 'module.factory', 'name' => 'Factory Operations', 'module' => 'factory', 'category' => 'navigation', 'description' => 'Factory units, lines, shifts, grades, production and safety records'],
         ['key' => 'module.salary', 'name' => 'Salary & Payroll', 'module' => 'salary', 'category' => 'navigation', 'description' => 'Inspect monthly payroll disbursements, basic pay, and payslips'],
         ['key' => 'module.snd', 'name' => 'SND Distribution Network', 'module' => 'snd', 'category' => 'navigation', 'description' => 'Access dealer network, retail outlets, primary sales orders, and depots'],
         ['key' => 'module.sfm', 'name' => 'SFM Field Force Management', 'module' => 'sfm', 'category' => 'navigation', 'description' => 'View field targets, monthly commitments, shop visits, and SR quotas'],
@@ -53,6 +54,7 @@ class PermissionController extends BaseApiController
         'Engineering' => [
             'module.dashboard' => true,
             'module.employees' => true,
+            'module.factory' => true,
             'module.attendance' => true,
             'module.leave' => true,
             'module.salary' => false,
@@ -81,6 +83,7 @@ class PermissionController extends BaseApiController
         'Product Design' => [
             'module.dashboard' => true,
             'module.employees' => true,
+            'module.factory' => true,
             'module.attendance' => true,
             'module.leave' => true,
             'module.salary' => false,
@@ -109,6 +112,7 @@ class PermissionController extends BaseApiController
         'Sales & Distribution' => [
             'module.dashboard' => true,
             'module.employees' => true,
+            'module.factory' => true,
             'module.attendance' => true,
             'module.leave' => true,
             'module.salary' => true,
@@ -137,6 +141,7 @@ class PermissionController extends BaseApiController
         'Human Resources' => [
             'module.dashboard' => true,
             'module.employees' => true,
+            'module.factory' => true,
             'module.attendance' => true,
             'module.leave' => true,
             'module.salary' => true,
@@ -165,6 +170,7 @@ class PermissionController extends BaseApiController
         'Finance & Accounts' => [
             'module.dashboard' => true,
             'module.employees' => true,
+            'module.factory' => true,
             'module.attendance' => true,
             'module.leave' => true,
             'module.salary' => true,
@@ -193,6 +199,7 @@ class PermissionController extends BaseApiController
         'Operations' => [
             'module.dashboard' => true,
             'module.employees' => true,
+            'module.factory' => true,
             'module.attendance' => true,
             'module.leave' => true,
             'module.salary' => false,
@@ -221,6 +228,7 @@ class PermissionController extends BaseApiController
         'Supply Chain' => [
             'module.dashboard' => true,
             'module.employees' => true,
+            'module.factory' => true,
             'module.attendance' => true,
             'module.leave' => true,
             'module.salary' => false,
@@ -249,6 +257,7 @@ class PermissionController extends BaseApiController
         'Legal & Compliance' => [
             'module.dashboard' => true,
             'module.employees' => true,
+            'module.factory' => true,
             'module.attendance' => true,
             'module.leave' => true,
             'module.salary' => false,
@@ -277,6 +286,7 @@ class PermissionController extends BaseApiController
         'Administration' => [
             'module.dashboard' => true,
             'module.employees' => true,
+            'module.factory' => true,
             'module.attendance' => true,
             'module.leave' => true,
             'module.salary' => true,
@@ -571,41 +581,10 @@ class PermissionController extends BaseApiController
      */
     protected function authorizeAdmin(Request $request): bool
     {
-        $operator = $request->header('X-Operator-Id')
-            ?? $request->input('operator_id')
-            ?? $request->query('operator_id')
-            ?? $request->header('X-Employee-Id');
-
-        $roleHeader = $request->header('X-Admin-Role') ?? $request->header('X-User-Role');
-
-        // If an operator ID is specified, verify their actual credentials against database
-        if ($operator) {
-            $operatorStr = strtolower(trim((string) $operator));
-
-            if (in_array($operatorStr, ['smt-0001', 'admin@smart.com', 'admin@smarterp.biz'])) {
-                return true;
-            }
-
-            $emp = DB::table('employees')
-                ->where('id', $operator)
-                ->orWhere('employee_id', $operator)
-                ->orWhere('employee_full_id', $operator)
-                ->orWhere('email', $operator)
-                ->first();
-
-            if (!$emp) {
-                return false;
-            }
-
-            // Strictly Administration department accounts are Admin-level accounts
-            return $emp->department === 'Administration';
-        }
-
-        // If no operator was passed, check if admin role header is present
-        if ($roleHeader && in_array(strtolower((string) $roleHeader), ['admin', 'superadmin', 'administrator'])) {
-            return true;
-        }
-
-        return false;
+        $user = $request->user();
+        if (!$user) { return false; }
+        $repository = app(\App\Repositories\Contracts\PayrollRepositoryInterface::class);
+        $actor = $repository->actor($user);
+        return $actor && $actor->status === 'Active' && $repository->allowed($actor, 'action.permissions.manage');
     }
 }
