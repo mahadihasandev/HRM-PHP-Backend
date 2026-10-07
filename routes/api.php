@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\NoticeController;
 use App\Http\Controllers\Api\OvertimeController;
 use App\Http\Controllers\Api\PayrollController;
 use App\Http\Controllers\Api\PayrollRunController;
+use App\Http\Controllers\Api\PeopleController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\RequestsController;
 use App\Http\Controllers\Api\SfmController;
@@ -122,6 +123,15 @@ $registerHrmRoutes = function () {
     Route::prefix('hrm/factory')->middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
         Route::get('/operations', [FactoryController::class, 'index']);
         Route::post('/records', [FactoryController::class, 'store']);
+    });
+
+    Route::prefix('hrm/people')->middleware('throttle:60,1')->group(function () {
+        Route::get('/overview', [PeopleController::class, 'overview']);
+        Route::get('/records', [PeopleController::class, 'index']);
+        Route::post('/records', [PeopleController::class, 'store']);
+        Route::get('/records/{id}', [PeopleController::class, 'show']);
+        Route::post('/records/{id}/files', [PeopleController::class, 'attach']);
+        Route::get('/records/{id}/files/{file}', [PeopleController::class, 'download']);
     });
 
     // Payroll batches require authenticated, company-scoped permission checks.

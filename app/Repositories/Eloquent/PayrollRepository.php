@@ -25,7 +25,7 @@ class PayrollRepository implements PayrollRepositoryInterface
         $override = DB::table('employee_permissions')->where('employee_full_id', $actor->employee_full_id)
             ->where('permission_key', $permission)->value('is_granted');
 
-        return $override !== null ? (bool) $override : (PermissionController::$departmentProfiles[$actor->department][$permission] ?? false);
+        return $override !== null ? (bool) $override : (PermissionController::$departmentProfiles[$actor->department][$permission] ?? ($permission === 'module.people'));
     }
 
     public function employees(int $companyId): Collection
