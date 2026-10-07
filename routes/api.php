@@ -36,11 +36,13 @@ $registerHrmRoutes = function () {
     Route::get('/health', HealthCheckController::class)->name('health');
 
     // Auth & User Profile & Email Verification
-    Route::post('/login', [AuthController::class, 'login'])->name('auth.login');
-    Route::get('/login', [AuthController::class, 'login'])->name('auth.login.get');
-    Route::post('/register', [AuthController::class, 'register'])->name('auth.register');
-    Route::post('/auth/send-verification-code', [AuthController::class, 'sendVerificationCode'])->name('auth.send_code');
-    Route::post('/auth/verify-code', [AuthController::class, 'verifyCode'])->name('auth.verify_code');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1')->name('auth.login');
+
+    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1')->name('auth.register');
+    Route::post('/auth/send-verification-code', [AuthController::class, 'sendVerificationCode'])->middleware('throttle:5,1')->name('auth.send_code');
+    Route::post('/auth/verify-code', [AuthController::class, 'verifyCode'])->middleware('throttle:5,1')->name('auth.verify_code');
+    Route::middleware(['auth:sanctum', \App\Http\Middleware\EmployeeContext::class])->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout'])->name('auth.logout');
     Route::post('/change-password', [AuthController::class, 'changePassword'])->name('auth.change_password');
     Route::get('/user', [AuthController::class, 'user'])->name('auth.user');
 
@@ -141,7 +143,7 @@ $registerHrmRoutes = function () {
         Route::get('/payslip/v2', [PayrollController::class, 'payslipV2'])->name('payroll.payslip.v2');
         Route::get('/payslips', [PayrollController::class, 'allPayslips'])->name('payroll.all_payslips');
         Route::get('/salary/structure', [PayrollController::class, 'salaryStructure'])->name('payroll.structure');
-        Route::post('/salary/disburse', [PayrollController::class, 'disburse'])->name('payroll.disburse');
+
     });
 
     // Overtime Management & Rates (Admin, HR & High Officials)
@@ -296,6 +298,7 @@ $registerHrmRoutes = function () {
 
         // SFM Employees
         Route::get('/employees', [SfmController::class, 'sfmEmployees'])->name('sfm.employees');
+    });
     });
 };
 

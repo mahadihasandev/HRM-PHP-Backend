@@ -16,52 +16,7 @@ class AttendanceController extends BaseApiController
      */
     protected function resolveEmployee(Request $request): object
     {
-        $identifier = $request->header('X-Operator-Id')
-            ?? $request->header('X-Employee-Id')
-            ?? $request->input('employee_full_id')
-            ?? $request->input('employee_id')
-            ?? $request->query('employee_full_id')
-            ?? $request->query('employee_id');
-
-        if (!$identifier && $request->user()) {
-            $identifier = $request->user()->email;
-        }
-
-        $idStr = trim((string) ($identifier ?? 'SMT-0051'));
-        if (in_array(strtolower($idStr), ['admin@smart.com', 'admin@smarterp.biz', 'admin'])) {
-            $idStr = 'SMT-0001';
-        }
-
-        $emp = DB::table('employees')
-            ->where('employee_full_id', $idStr)
-            ->orWhere('id', $idStr)
-            ->orWhere('employee_id', $idStr)
-            ->orWhere('email', $idStr)
-            ->first();
-
-        if (!$emp && $request->user()) {
-            $emp = DB::table('employees')
-                ->where('email', $request->user()->email)
-                ->orWhere('employee_full_id', str_replace('@smarterp.biz', '', $request->user()->email))
-                ->first();
-        }
-
-        if ($emp) {
-            return $emp;
-        }
-
-        // Fallback default
-        return (object) [
-            'id' => 1,
-            'employee_id' => 1,
-            'employee_full_id' => 'SMT-0051',
-            'name' => 'Abdul Halim',
-            'department' => 'Sales & Distribution',
-            'company' => 'Smart Technologies (BD) Ltd.',
-            'basic_salary' => 55000,
-            'overtime_rate' => 528.85,
-            'overtime_eligible' => 1,
-        ];
+        return app(\App\Services\Employees\EmployeeAccess::class)->target($request, 'module.attendance');
     }
 
     /**
@@ -111,7 +66,7 @@ class AttendanceController extends BaseApiController
      */
     public function mobileStore(Request $request): JsonResponse
     {
-        $type = strtolower((string) $request->input('type', 'auto'));
+        $type = strtolower((string) $request->input('type', $request->input('punch_type', 'auto')));
 
         if ($type === 'in' || $type === 'punch_in') {
             return $this->punchIn($request);
@@ -145,10 +100,10 @@ class AttendanceController extends BaseApiController
     {
         $emp = $this->resolveEmployee($request);
         $today = now()->toDateString();
-        $time = $request->input('time') ?? now()->format('h:i A');
-        $lat = $request->input('latitude', '23.8103');
-        $long = $request->input('longitude', '90.4125');
-        $location = $request->input('location', 'Dhaka Headquarters');
+        $time = now()->format('h:i A');
+        $lat = $request->input('latitude');
+        $long = $request->input('longitude');
+        $location = $request->input('location', 'Self-service web punch');
 
         $existing = DB::table('attendance_records')
             ->where('employee_full_id', $emp->employee_full_id)
@@ -179,7 +134,7 @@ class AttendanceController extends BaseApiController
         $parsedTime = Carbon::parse("{$today} {$time}");
         $graceDeadline = Carbon::parse("{$today} 09:15 AM");
         $status = $parsedTime->greaterThan($graceDeadline) ? 'Late' : 'Present';
-        $lateMinutes = $parsedTime->greaterThan($graceDeadline) ? $parsedTime->diffInMinutes($graceDeadline) : 0;
+        $lateMinutes = $parsedTime->greaterThan($graceDeadline) ? $graceDeadline->diffInMinutes($parsedTime) : 0;
 
         if ($existing) {
             DB::table('attendance_records')
@@ -189,7 +144,7 @@ class AttendanceController extends BaseApiController
                     'status' => $status,
                     'late_minutes' => $lateMinutes,
                     'location' => $location,
-                    'punch_source' => 'Mobile Geolocation',
+                    'punch_source' => 'Web',
                     'updated_at' => now(),
                 ]);
         } else {
@@ -203,7 +158,7 @@ class AttendanceController extends BaseApiController
                 'status' => $status,
                 'late_minutes' => $lateMinutes,
                 'location' => $location,
-                'punch_source' => 'Mobile Geolocation',
+                'punch_source' => 'Web',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -239,9 +194,9 @@ class AttendanceController extends BaseApiController
     {
         $emp = $this->resolveEmployee($request);
         $today = now()->toDateString();
-        $time = $request->input('time') ?? now()->format('h:i A');
-        $lat = $request->input('latitude', '23.8103');
-        $long = $request->input('longitude', '90.4125');
+        $time = now()->format('h:i A');
+        $lat = $request->input('latitude');
+        $long = $request->input('longitude');
 
         $existing = DB::table('attendance_records')
             ->where('employee_full_id', $emp->employee_full_id)
@@ -357,19 +312,9 @@ class AttendanceController extends BaseApiController
     public function todayReport(Request $request): JsonResponse
     {
         $today = now()->toDateString();
-        $totalEmployees = DB::table('employees')->count();
-        $present = DB::table('attendance_records')->where('date', $today)->where('status', 'Present')->count();
-        $late = DB::table('attendance_records')->where('date', $today)->where('status', 'Late')->count();
-        $leave = DB::table('attendance_records')->where('date', $today)->where('status', 'Leave')->count();
-        $holiday = DB::table('attendance_records')->where('date', $today)->where('status', 'Holiday')->count();
-        $absent = max(0, $totalEmployees - ($present + $late + $leave + $holiday));
-
-        if ($present === 0 && $late === 0) {
-            $present = (int) round($totalEmployees * 0.88);
-            $late = (int) round($totalEmployees * 0.05);
-            $leave = (int) round($totalEmployees * 0.04);
-            $absent = max(0, $totalEmployees - ($present + $late + $leave));
-        }
+        $data = app(\App\Services\Employees\DashboardService::class)->metrics($request);
+        $totalEmployees = $data['total_employees'];
+        $present = $data['present_today']; $late = $data['late_today']; $leave = $data['on_leave_today']; $absent = $data['absent_today'];
 
         return response()->json([
             'status' => true,
@@ -396,7 +341,9 @@ class AttendanceController extends BaseApiController
         $departmentFilter = $request->query('department');
         $search = $request->query('search');
 
-        $employees = DB::table('employees')
+        $actor = app(\App\Services\Employees\EmployeeAccess::class)->actor($request);
+        abort_unless(app(\App\Services\Employees\EmployeeAccess::class)->allowed($actor, 'module.attendance'), 403);
+        $employees = DB::table('employees')->where('company_id', $actor->company_id)
             ->select('id', 'employee_full_id', 'name', 'email', 'phone', 'department', 'designation', 'company')
             ->orderBy('id', 'asc')
             ->get();
@@ -425,44 +372,9 @@ class AttendanceController extends BaseApiController
                 $location = $rec->location ?: 'Tejgaon Corporate HQ, Dhaka';
                 $punchSource = $rec->punch_source ?: 'ZKTeco BioSync';
             } else {
-                // Realistic corporate attendance distribution (approx 91% Present, 5% Late, 3% Leave, 1% Absent)
-                $hash = ($emp->id * 23 + 7) % 100;
-                if ($hash < 89) {
-                    $status = 'Present';
-                    $minute = 45 + (($emp->id * 7) % 14); // 08:45 AM - 08:58 AM
-                    $inTime = sprintf('08:%02d AM', $minute);
-                    $outTime = '06:05 PM';
-                    $workingHours = '9 hrs 10 mins';
-                    $overtimeHours = '1 hrs 10 mins';
-                    $lateMinutes = 0;
-                    $punchSource = $emp->id % 2 === 0 ? 'ZKTeco SilkBio 101TC' : 'Mobile GPS (HQ)';
-                } elseif ($hash < 95) {
-                    $status = 'Late';
-                    $minute = 16 + (($emp->id * 3) % 20); // 09:16 AM - 09:35 AM
-                    $inTime = sprintf('09:%02d AM', $minute);
-                    $outTime = '06:30 PM';
-                    $workingHours = '9 hrs 14 mins';
-                    $overtimeHours = '0 hrs 30 mins';
-                    $lateMinutes = $minute;
-                    $punchSource = 'ZKTeco BioSync';
-                } elseif ($hash < 98) {
-                    $status = 'Leave';
-                    $inTime = null;
-                    $outTime = null;
-                    $workingHours = null;
-                    $overtimeHours = null;
-                    $lateMinutes = 0;
-                    $punchSource = 'HR Portal Leave App';
-                } else {
-                    $status = 'Absent';
-                    $inTime = null;
-                    $outTime = null;
-                    $workingHours = null;
-                    $overtimeHours = null;
-                    $lateMinutes = 0;
-                    $punchSource = 'Unregistered';
-                }
-                $location = 'Tejgaon Corporate HQ, Dhaka';
+                $status = 'Absent'; $inTime = null; $outTime = null;
+                $workingHours = null; $overtimeHours = null; $lateMinutes = 0;
+                $punchSource = 'No attendance record'; $location = '';
             }
 
             if ($status === 'Present') $presentCount++;
@@ -547,50 +459,7 @@ class AttendanceController extends BaseApiController
             ->orderBy('date', 'desc')
             ->get();
 
-        if ($records->isNotEmpty()) {
-            return response()->json([
-                'status' => true,
-                'month' => $month,
-                'employee_full_id' => $emp->employee_full_id,
-                'data' => $records,
-            ]);
-        }
-
-        // Generator for synthetic monthly job cards if no records exist yet
-        $logs = [];
-        $daysInMonth = 30;
-
-        for ($i = 1; $i <= $daysInMonth; $i++) {
-            $dayStr = sprintf('%s-%02d', $month, $i);
-            $dayOfWeek = (int) date('N', strtotime($dayStr));
-
-            if ($dayOfWeek === 5 || $dayOfWeek === 6) {
-                $status = 'Holiday';
-                $in = null;
-                $out = null;
-            } else {
-                $status = $i === 3 ? 'Late' : ($i === 15 ? 'Leave' : 'Present');
-                $in = $status === 'Late' ? '09:25 AM' : ($status === 'Leave' ? null : '08:58 AM');
-                $out = $status === 'Leave' ? null : '06:05 PM';
-            }
-
-            $logs[] = [
-                'id' => $i,
-                'date' => $dayStr,
-                'in_time' => $in,
-                'out_time' => $out,
-                'status' => $status,
-                'working_hours' => $in ? '8 hrs 55 mins' : null,
-                'overtime_hours' => $in ? '0 hrs 55 mins' : null,
-            ];
-        }
-
-        return response()->json([
-            'status' => true,
-            'month' => $month,
-            'employee_full_id' => $emp->employee_full_id,
-            'data' => $logs,
-        ]);
+        return response()->json(['status' => true, 'month' => $month, 'employee_full_id' => $emp->employee_full_id, 'data' => $records]);
     }
 
     /**
@@ -624,10 +493,6 @@ class AttendanceController extends BaseApiController
      */
     public function push(Request $request): JsonResponse
     {
-        return response()->json([
-            'status' => true,
-            'message' => 'Attendance push records processed successfully',
-            'records_count' => is_array($request->input('data')) ? count($request->input('data')) : 1,
-        ]);
+        return $this->errorResponse('Biometric ingestion is not implemented; no records were stored.', 501);
     }
 }

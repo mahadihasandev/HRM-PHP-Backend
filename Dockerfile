@@ -1,36 +1,16 @@
-# Production Dockerfile for Laravel Backend on Render
-FROM php:8.4-cli-alpine
-
-# Install system dependencies and PostgreSQL client libraries
-RUN apk add --no-cache \
-    postgresql-dev \
-    libzip-dev \
-    zip \
-    unzip \
-    git \
-    curl \
-    linux-headers
-
-# Install PHP extensions
-RUN docker-php-ext-install pdo pdo_pgsql opcache pcntl bcmath zip
-
-# Copy Composer from official image
+FROM php:8.4-apache
+RUN apt-get update && apt-get install -y --no-install-recommends libpq-dev libzip-dev libonig-dev unzip git \
+    && docker-php-ext-install pdo_pgsql opcache bcmath zip mbstring \
+    && a2enmod rewrite \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-
 WORKDIR /var/www/html
-
-# Copy application files
 COPY . .
-
-# Install PHP dependencies without dev packages
-RUN composer install --no-dev --optimize-autoloader --no-interaction
-
-# Set directory permissions for Laravel storage and cache
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
-    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
-
+RUN composer install --no-dev --optimize-autoloader --no-interaction \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf \
+    && printf '<Directory /var/www/html/public>\nAllowOverride All\nRequire all granted\n</Directory>\n' > /etc/apache2/conf-available/laravel.conf \
+    && a2enconf laravel
 ENV PORT=8000
 EXPOSE 8000
-
-# Start command using artisan serve with dynamic Render PORT
-CMD php artisan config:cache && php artisan route:cache && php artisan serve --host=0.0.0.0 --port=${PORT}
+CMD ["sh", "docker/start.sh"]
