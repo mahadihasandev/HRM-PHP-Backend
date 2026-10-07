@@ -59,21 +59,8 @@ class AuthController extends BaseApiController
 
         if ($user) {
             if (!Hash::check($password, $user->password)) {
-                // If standard default password is supplied, auto-sync and allow
-                if ($password === 'password123') {
-                    $user->password = Hash::make('password123');
-                    $user->save();
-                } else {
-                    return $this->errorResponse('Invalid password provided', Response::HTTP_UNAUTHORIZED);
-                }
+                return $this->errorResponse('Invalid password provided', Response::HTTP_UNAUTHORIZED);
             }
-        } elseif ($employee) {
-            // Auto-provision user account for active employee
-            $user = User::create([
-                'name' => $employee->name,
-                'email' => $employee->email ?: ($employee->employee_full_id . '@smarterp.biz'),
-                'password' => Hash::make($password),
-            ]);
         } else {
             return $this->errorResponse('Invalid credentials provided', Response::HTTP_UNAUTHORIZED);
         }
@@ -289,7 +276,7 @@ class AuthController extends BaseApiController
         // 5. Create Employee Record
         $nextId = ((int) (DB::table('employees')->max('id') ?? 65)) + 1;
         $fullId = sprintf('SMT-%04d', $nextId);
-        $dept = $request->input('department', 'General Operations');
+        $dept = 'General Operations'; // Public registration cannot assign privileged department access.
         $designation = $request->input('designation', 'Staff Associate');
         $phone = $request->input('phone', '01712000000');
 

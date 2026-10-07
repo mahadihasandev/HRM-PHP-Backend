@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\EmployeeController;
+use App\Http\Controllers\Api\FactoryController;
 use App\Http\Controllers\Api\FilterController;
 use App\Http\Controllers\Api\HealthCheckController;
 use App\Http\Controllers\Api\LeaveController;
@@ -14,12 +15,14 @@ use App\Http\Controllers\Api\LoanController;
 use App\Http\Controllers\Api\NoticeController;
 use App\Http\Controllers\Api\OvertimeController;
 use App\Http\Controllers\Api\PayrollController;
+use App\Http\Controllers\Api\PayrollRunController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\RequestsController;
 use App\Http\Controllers\Api\SfmController;
 use App\Http\Controllers\Api\SndController;
 use App\Http\Controllers\Api\TourPlanController;
 use App\Http\Controllers\Api\TrainingController;
+use App\Http\Middleware\EmployeeWriteAuthorization;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -50,12 +53,12 @@ $registerHrmRoutes = function () {
         Route::post('/profile-update', [EmployeeController::class, 'updateProfile'])->name('employee.profile.update');
         Route::get('/get-employees', [EmployeeController::class, 'getEmployees'])->name('employee.list');
         Route::get('/employees', [EmployeeController::class, 'getEmployees'])->name('employee.filter_list');
-        Route::post('/employee-create', [EmployeeController::class, 'store'])->name('employee.store');
-        Route::post('/employees', [EmployeeController::class, 'store'])->name('employee.store_alt');
-        Route::match(['put', 'patch', 'post'], '/employee-update/{id}', [EmployeeController::class, 'update'])->name('employee.update');
-        Route::match(['put', 'patch'], '/employees/{id}', [EmployeeController::class, 'update'])->name('employee.update_alt');
-        Route::match(['delete', 'post'], '/employee-delete/{id}', [EmployeeController::class, 'destroy'])->name('employee.destroy');
-        Route::delete('/employees/{id}', [EmployeeController::class, 'destroy'])->name('employee.destroy_alt');
+        Route::post('/employee-create', [EmployeeController::class, 'store'])->middleware(['auth:sanctum', EmployeeWriteAuthorization::class.':action.employees.create'])->name('employee.store');
+        Route::post('/employees', [EmployeeController::class, 'store'])->middleware(['auth:sanctum', EmployeeWriteAuthorization::class.':action.employees.create'])->name('employee.store_alt');
+        Route::match(['put', 'patch', 'post'], '/employee-update/{id}', [EmployeeController::class, 'update'])->middleware(['auth:sanctum', EmployeeWriteAuthorization::class.':action.employees.edit'])->name('employee.update');
+        Route::match(['put', 'patch'], '/employees/{id}', [EmployeeController::class, 'update'])->middleware(['auth:sanctum', EmployeeWriteAuthorization::class.':action.employees.edit'])->name('employee.update_alt');
+        Route::match(['delete', 'post'], '/employee-delete/{id}', [EmployeeController::class, 'destroy'])->middleware(['auth:sanctum', EmployeeWriteAuthorization::class.':action.employees.delete'])->name('employee.destroy');
+        Route::delete('/employees/{id}', [EmployeeController::class, 'destroy'])->middleware(['auth:sanctum', EmployeeWriteAuthorization::class.':action.employees.delete'])->name('employee.destroy_alt');
     });
     Route::get('/company-wise-users', [EmployeeController::class, 'companyWiseUsers'])->name('employee.company_users');
 
@@ -64,10 +67,10 @@ $registerHrmRoutes = function () {
         Route::get('/permissions', [PermissionController::class, 'index'])->name('permissions.index');
         Route::get('/permissions/check', [PermissionController::class, 'check'])->name('permissions.check');
         Route::get('/permissions/employee/{id}', [PermissionController::class, 'getEmployeePermissions'])->name('permissions.employee');
-        Route::match(['post', 'put'], '/permissions/employee/{id}', [PermissionController::class, 'updateEmployeePermissions'])->name('permissions.employee_update');
-        Route::post('/permissions/employee/{id}/grant-all', [PermissionController::class, 'grantAll'])->name('permissions.grant_all');
-        Route::post('/permissions/employee/{id}/revoke-all', [PermissionController::class, 'revokeAll'])->name('permissions.revoke_all');
-        Route::post('/permissions/employee/{id}/reset-defaults', [PermissionController::class, 'resetDefaults'])->name('permissions.reset_defaults');
+        Route::match(['post', 'put'], '/permissions/employee/{id}', [PermissionController::class, 'updateEmployeePermissions'])->middleware(['auth:sanctum', EmployeeWriteAuthorization::class.':action.permissions.manage'])->name('permissions.employee_update');
+        Route::post('/permissions/employee/{id}/grant-all', [PermissionController::class, 'grantAll'])->middleware(['auth:sanctum', EmployeeWriteAuthorization::class.':action.permissions.manage'])->name('permissions.grant_all');
+        Route::post('/permissions/employee/{id}/revoke-all', [PermissionController::class, 'revokeAll'])->middleware(['auth:sanctum', EmployeeWriteAuthorization::class.':action.permissions.manage'])->name('permissions.revoke_all');
+        Route::post('/permissions/employee/{id}/reset-defaults', [PermissionController::class, 'resetDefaults'])->middleware(['auth:sanctum', EmployeeWriteAuthorization::class.':action.permissions.manage'])->name('permissions.reset_defaults');
     });
 
     // Attendance & Biometrics
@@ -114,6 +117,24 @@ $registerHrmRoutes = function () {
         Route::get('/outwork/list', [RequestsController::class, 'listOutwork'])->name('outwork.list');
     });
 
+    Route::prefix('hrm/factory')->middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
+        Route::get('/operations', [FactoryController::class, 'index']);
+        Route::post('/records', [FactoryController::class, 'store']);
+    });
+
+    // Payroll batches require authenticated, company-scoped permission checks.
+    Route::prefix('hrm/payroll')->middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
+        Route::get('/history', [PayrollRunController::class, 'history']);
+        Route::get('/runs', [PayrollRunController::class, 'index']);
+        Route::post('/preview', [PayrollRunController::class, 'preview']);
+        Route::get('/runs/{id}', [PayrollRunController::class, 'show']);
+        Route::post('/runs', [PayrollRunController::class, 'store']);
+        Route::delete('/runs/{id}', [\App\Http\Controllers\Api\PayrollRunController::class, 'discard']);
+        Route::post('/runs/{id}/action', [PayrollRunController::class, 'action']);
+        Route::post('/runs/{id}/attachments', [PayrollRunController::class, 'attach']);
+        Route::get('/runs/{id}/attachments/{attachment}', [PayrollRunController::class, 'download']);
+    });
+
     // Salary & Payroll (Comprehensive HRM Extension)
     Route::prefix('hrm')->group(function () {
         Route::get('/payslip', [PayrollController::class, 'payslip'])->name('payroll.payslip');
@@ -125,10 +146,10 @@ $registerHrmRoutes = function () {
 
     // Overtime Management & Rates (Admin, HR & High Officials)
     Route::prefix('hrm')->group(function () {
-        Route::get('/overtime/rates', [OvertimeController::class, 'index'])->name('overtime.rates');
-        Route::post('/overtime/set-rate', [OvertimeController::class, 'setRate'])->name('overtime.set_rate');
-        Route::post('/overtime/bulk-set', [OvertimeController::class, 'bulkSetRates'])->name('overtime.bulk_set');
-        Route::get('/overtime/logs', [OvertimeController::class, 'getLogs'])->name('overtime.logs');
+        Route::get('/overtime/rates', [OvertimeController::class, 'index'])->middleware(['auth:sanctum', \App\Http\Middleware\EmployeeWriteAuthorization::class.':module.salary'])->name('overtime.rates');
+        Route::post('/overtime/set-rate', [OvertimeController::class, 'setRate'])->middleware(['auth:sanctum', \App\Http\Middleware\EmployeeWriteAuthorization::class.':action.employees.edit'])->name('overtime.set_rate');
+        Route::post('/overtime/bulk-set', [OvertimeController::class, 'bulkSetRates'])->middleware(['auth:sanctum', \App\Http\Middleware\EmployeeWriteAuthorization::class.':action.employees.edit'])->name('overtime.bulk_set');
+        Route::get('/overtime/logs', [OvertimeController::class, 'getLogs'])->middleware(['auth:sanctum', \App\Http\Middleware\EmployeeWriteAuthorization::class.':module.salary'])->name('overtime.logs');
     });
 
     // HR Loans
@@ -279,7 +300,7 @@ $registerHrmRoutes = function () {
 };
 
 // Register for /api/v1/*
-Route::prefix('v1')->group($registerHrmRoutes);
+Route::prefix('v1')->name('v1.')->group($registerHrmRoutes);
 
 // Register for /api/* directly (matching raw Postman endpoints)
 $registerHrmRoutes();

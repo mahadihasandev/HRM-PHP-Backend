@@ -53,3 +53,6 @@ Thumbs.db
 _ide_helper.php
 Homestead.json
 Homestead.yaml
+
+# Private payroll documents
+/storage/app/private/payroll/
