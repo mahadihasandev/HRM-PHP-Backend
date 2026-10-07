@@ -17,6 +17,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->redirectGuestsTo(fn (Request $request) => null);
+
         // Trust all reverse proxies (essential for Render / Cloudflare / Load Balancers)
         $middleware->trustProxies(at: '*');
 

@@ -6,3 +6,12 @@
 .phpunit.result.cache
 .env.backup
 .env.production
+
+.env.*
+!.env.example
+/storage/logs/**
+/storage/app/**
+/database/*.sqlite*
+/output
+/tests
+/bootstrap/cache/*.php

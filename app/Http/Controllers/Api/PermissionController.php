@@ -353,12 +353,11 @@ class PermissionController extends BaseApiController
             $idStr = 'SMT-0001';
         }
 
-        return DB::table('employees')
-            ->where('id', $idStr)
-            ->orWhere('employee_id', $idStr)
-            ->orWhere('employee_full_id', $idStr)
-            ->orWhere('email', $idStr)
-            ->first();
+        $actor = request()->attributes->get('employee_actor');
+        return DB::table('employees')->where('company_id', $actor->company_id)->where(function ($query) use ($idStr) {
+            $query->where('employee_full_id', $idStr)->orWhere('email', $idStr);
+            if (is_numeric($idStr)) $query->orWhere('id', (int) $idStr)->orWhere('employee_id', (int) $idStr);
+        })->first();
     }
 
     /**
@@ -368,6 +367,8 @@ class PermissionController extends BaseApiController
     {
         $this->syncCatalog();
 
+        $actor = $request->attributes->get('employee_actor');
+        abort_unless((string) $id === (string) $actor->id || (string) $id === $actor->employee_full_id || app(\App\Services\Employees\EmployeeAccess::class)->allowed($actor, 'action.permissions.manage'), 403);
         $employee = $this->findEmployee($id);
 
         if (!$employee) {
@@ -475,7 +476,7 @@ class PermissionController extends BaseApiController
                 [
                     'employee_id' => $employee->id,
                     'is_granted' => (bool) $isGranted,
-                    'granted_by' => $request->input('granted_by', 'Administrator'),
+                    'granted_by' => $request->attributes->get('employee_actor')->name,
                     'updated_at' => now(),
                     'created_at' => now(),
                 ]
@@ -491,7 +492,7 @@ class PermissionController extends BaseApiController
      */
     public function check(Request $request): JsonResponse
     {
-        $employeeId = $request->input('employee_id') ?? $request->query('employee_id') ?? 'SMT-0051';
+        $employeeId = $request->input('employee_id') ?? $request->query('employee_id') ?? $request->attributes->get('employee_actor')->employee_full_id;
         $permissionKey = $request->input('permission') ?? $request->query('permission');
 
         if (!$permissionKey) {

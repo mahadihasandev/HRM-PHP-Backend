@@ -45,7 +45,7 @@ class HealthCheckController extends BaseApiController
 
         $isHealthy = $dbStatus === 'healthy' && $redisStatus === 'healthy';
 
-        return $this->successResponse([
+        $response = $this->successResponse([
             'status' => $isHealthy ? 'operational' : 'degraded',
             'environment' => config('app.env'),
             'timestamp' => now()->toIso8601String(),
@@ -63,5 +63,6 @@ class HealthCheckController extends BaseApiController
             'php_version' => PHP_VERSION,
             'framework' => 'Laravel ' . app()->version(),
         ], 'API operational status');
+        return $response->setStatusCode($isHealthy ? 200 : 503);
     }
 }
