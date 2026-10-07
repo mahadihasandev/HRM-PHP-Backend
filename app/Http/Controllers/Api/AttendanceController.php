@@ -475,17 +475,7 @@ class AttendanceController extends BaseApiController
      */
     public function currentShift(Request $request): JsonResponse
     {
-        return response()->json([
-            'status' => true,
-            'data' => [
-                'shift_name' => 'General Corporate Day Shift (09:00 - 18:00)',
-                'start_time' => '09:00 AM',
-                'end_time' => '06:00 PM',
-                'grace_time_minutes' => 15,
-                'standard_duty_hours' => 8,
-                'weekend_days' => ['Friday', 'Saturday'],
-            ],
-        ]);
+        return $this->successResponse(app(\App\Services\PeopleService::class)->currentShift($this->resolveEmployee($request)), 'Current assigned shift');
     }
 
     /**
