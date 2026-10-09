@@ -1,0 +1,44 @@
+# Local vendor & node_modules (installed freshly by Vercel during build)
+/vendor
+/node_modules
+/.git
+/.github
+/.vscode
+/.idea
+
+# Environment files
+.env
+.env.backup
+.env.production
+.env.*.local
+
+# Logs and runtime caches
+*.log
+/storage/logs/*.log
+/storage/*.key
+/storage/pail
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/framework/testing/*
+/storage/app/private/*
+
+# Local SQLite databases
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.sqlite3-journal
+/database/*.sqlite
+
+# Test suites & documentation
+/tests
+/docs
+phpunit.xml
+.phpunit.result.cache
+/.phpunit.cache
+
+# Docker & Render deployment assets
+Dockerfile
+.dockerignore
+/docker
+render.yaml

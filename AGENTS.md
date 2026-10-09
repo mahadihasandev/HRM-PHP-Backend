@@ -53,17 +53,20 @@ Follow Clean Layered Architecture and Domain-Driven Design concepts:
 
 ---
 
-## 5. Deployment on Render
+## 5. Deployment Options
+
+### 5.1 Deployment on Render (Docker)
 - **Blueprint**: Defined in `render.yaml`.
-- **Container**: `Dockerfile` uses Alpine PHP 8.4 with OPcache enabled.
-- **Build Step**:
-  ```bash
-  composer install --no-dev --optimize-autoloader
-  php artisan config:cache
-  php artisan route:cache
-  ```
-- **Health Check Route**: `/api/v1/health` verifies database and Redis connectivity.
+- **Container**: `Dockerfile` uses PHP 8.4 Apache with OPcache and PostgreSQL enabled.
+- **Health Check Route**: `/api/v1/health` verifies database and cache connectivity.
 - **Reverse Proxy**: `bootstrap/app.php` trusts reverse proxies (`*`) to correctly determine client IP and TLS scheme.
+
+### 5.2 Deployment on Vercel (Serverless PHP)
+- **Configuration**: Defined in `vercel.json` and `.vercelignore`.
+- **Runtime**: `vercel-php@0.8.0` (PHP 8.4 serverless runtime).
+- **Entrypoint**: `api/index.php` (normalizes `$_SERVER['SCRIPT_NAME']` to `/index.php` and prepares `/tmp` directories).
+- **Filesystem**: Dynamically routes storage and view caches to `/tmp/storage` when `VERCEL` environment variable is detected.
+- **Guide**: Detailed steps documented in `docs/VERCEL_DEPLOYMENT.md`.
 
 ---
 

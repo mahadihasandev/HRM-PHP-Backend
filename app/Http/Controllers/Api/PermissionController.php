@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class PermissionController extends BaseApiController
@@ -346,16 +347,26 @@ class PermissionController extends BaseApiController
     ];
 
     /**
-     * Ensure all catalog permissions exist in database.
+     * Ensure all catalog permissions exist in database (cached & batch upserted).
      */
     protected function syncCatalog(): void
     {
-        foreach (self::$systemPermissions as $perm) {
-            DB::table('permissions')->updateOrInsert(
-                ['key' => $perm['key']],
-                array_merge($perm, ['updated_at' => now(), 'created_at' => now()])
-            );
+        static $synced = false;
+        if ($synced) {
+            return;
         }
+
+        Cache::remember('system_permissions_synced', 86400, function () {
+            $now = now();
+            $records = array_map(
+                fn ($perm) => array_merge($perm, ['created_at' => $now, 'updated_at' => $now]),
+                self::$systemPermissions
+            );
+            DB::table('permissions')->upsert($records, ['key'], ['name', 'module', 'category', 'description', 'updated_at']);
+            return true;
+        });
+
+        $synced = true;
     }
 
     /**
@@ -365,7 +376,9 @@ class PermissionController extends BaseApiController
     {
         $this->syncCatalog();
 
-        $permissions = DB::table('permissions')->orderBy('category')->orderBy('module')->get();
+        $permissions = Cache::remember('system_permissions_list', 3600, function () {
+            return DB::table('permissions')->orderBy('category')->orderBy('module')->get();
+        });
 
         return response()->json([
             'status' => true,
@@ -385,9 +398,15 @@ class PermissionController extends BaseApiController
         }
 
         $actor = request()->attributes->get('employee_actor');
-        return DB::table('employees')->where('company_id', $actor->company_id)->where(function ($query) use ($idStr) {
-            $query->where('employee_full_id', $idStr)->orWhere('email', $idStr);
-            if (is_numeric($idStr)) $query->orWhere('id', (int) $idStr)->orWhere('employee_id', (int) $idStr);
+        $query = DB::table('employees');
+        if ($actor && isset($actor->company_id)) {
+            $query->where('company_id', $actor->company_id);
+        }
+        return $query->where(function ($sub) use ($idStr) {
+            $sub->where('employee_full_id', $idStr)->orWhere('email', $idStr);
+            if (is_numeric($idStr)) {
+                $sub->orWhere('id', (int) $idStr)->orWhere('employee_id', (int) $idStr);
+            }
         })->first();
     }
 
@@ -409,7 +428,7 @@ class PermissionController extends BaseApiController
             ], 404);
         }
 
-        $allPermissions = DB::table('permissions')->get();
+        $allPermissions = Cache::remember('system_permissions_list', 3600, fn () => DB::table('permissions')->get());
 
         // 1. Determine department baseline defaults
         $deptDefaults = self::$departmentProfiles[$employee->department]
@@ -431,7 +450,8 @@ class PermissionController extends BaseApiController
         // 3. Compute effective permissions (Department defaults overridden by explicit employee settings)
         $effective = [];
         foreach ($allPermissions as $perm) {
-            $key = $perm->key;
+            $key = is_object($perm) ? ($perm->key ?? '') : (is_array($perm) ? ($perm['key'] ?? '') : (string) $perm);
+            if (!$key) continue;
             if (array_key_exists($key, $overridesBool)) {
                 $effective[$key] = $overridesBool[$key];
             } elseif (array_key_exists($key, $deptDefaults)) {
@@ -513,6 +533,8 @@ class PermissionController extends BaseApiController
                 ]
             );
         }
+
+        Cache::forget("employee_perm_overrides_{$employee->employee_full_id}");
 
         // Return updated result
         return $this->getEmployeePermissions($request, (string) $employee->id);
@@ -603,6 +625,8 @@ class PermissionController extends BaseApiController
             ->where('employee_full_id', $employee->employee_full_id)
             ->orWhere('employee_id', $employee->id)
             ->delete();
+
+        Cache::forget("employee_perm_overrides_{$employee->employee_full_id}");
 
         return $this->getEmployeePermissions($request, (string) $employee->id);
     }
