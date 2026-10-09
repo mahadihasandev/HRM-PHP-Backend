@@ -30,7 +30,7 @@
   "env": {
     "APP_NAME": "HRM Backend",
     "APP_ENV": "production",
-    "APP_DEBUG": "true",
+    "APP_DEBUG": "false",
     "APP_KEY": "base64:kjE7C26JgU10yMsO9EH0s5CqxQ/4/FTNaZyGN3fshgw=",
     "APP_URL": "https://hrm-php-backend-indol.vercel.app",
     "APP_TIMEZONE": "Asia/Dhaka",
