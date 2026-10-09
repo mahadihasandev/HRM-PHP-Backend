@@ -9,6 +9,7 @@
       "maxDuration": 15
     }
   },
+  "regions": ["sin1"],
   "routes": [
     {
       "src": "/build/(.*)",
@@ -41,7 +42,7 @@
     "APP_ROUTES_CACHE": "/tmp/bootstrap/cache/routes.php",
     "APP_SERVICES_CACHE": "/tmp/bootstrap/cache/services.php",
     "VIEW_COMPILED_PATH": "/tmp/storage/framework/views",
-    "CACHE_STORE": "database",
+    "CACHE_STORE": "file",
     "SESSION_DRIVER": "cookie",
     "QUEUE_CONNECTION": "sync",
     "LOG_CHANNEL": "stderr",
