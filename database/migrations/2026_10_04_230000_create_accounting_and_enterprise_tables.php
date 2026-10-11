@@ -178,7 +178,7 @@ return new class extends Migration
                     'title' => 'Advanced Field Sales Execution & Outlet Merchandising',
                     'start_date' => '2026-10-15',
                     'end_date' => '2026-10-18',
-                    'venue' => 'Smart Training Institute, Level 5, Dhaka',
+                    'venue' => 'HRM Training Institute, Level 5, Dhaka',
                     'duration' => '4 Days (24 Hours)',
                     'trainer' => 'Farhan Masud (Senior Sales Director)',
                     'status' => 'Upcoming',

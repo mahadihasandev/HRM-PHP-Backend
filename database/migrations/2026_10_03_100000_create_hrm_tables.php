@@ -24,7 +24,7 @@ return new class extends Migration
             $table->string('personal_phone')->nullable();
             $table->string('designation');
             $table->string('department');
-            $table->string('company')->default('Smart Technologies (BD) Ltd.');
+            $table->string('company')->default('HRM Technologies (BD) Ltd.');
             $table->unsignedBigInteger('company_id')->default(7);
             $table->string('status')->default('Active'); // Active, Inactive, On Leave
             $table->string('blood_group', 10)->nullable();
@@ -121,7 +121,7 @@ return new class extends Migration
             $table->string('month', 10); // e.g. 2026-09
             $table->string('designation');
             $table->string('department');
-            $table->string('company')->default('Smart Technologies (BD) Ltd.');
+            $table->string('company')->default('HRM Technologies (BD) Ltd.');
             $table->decimal('basic_salary', 12, 2);
             $table->decimal('house_rent', 12, 2);
             $table->decimal('medical_allowance', 12, 2);
@@ -206,7 +206,7 @@ return new class extends Migration
             $table->date('publish_at');
             $table->date('expire_at');
             $table->string('department')->default('All Departments');
-            $table->string('company')->default('Smart Technologies (BD) Ltd.');
+            $table->string('company')->default('HRM Technologies (BD) Ltd.');
             $table->string('priority')->default('Normal'); // High, Normal, Urgent
             $table->timestamps();
         });

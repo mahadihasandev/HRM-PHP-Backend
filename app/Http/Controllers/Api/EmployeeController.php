@@ -144,7 +144,7 @@ class EmployeeController extends BaseApiController
                 'personal_phone' => $request->input('phone', '01712000000'),
                 'designation' => $validated['designation'],
                 'department' => $validated['department'],
-                'company' => $request->attributes->get('employee_actor')?->company ?? 'Smart Technologies (BD) Ltd.',
+                'company' => $request->attributes->get('employee_actor')?->company ?? 'HRM Technologies (BD) Ltd.',
                 'company_id' => $request->attributes->get('employee_actor')?->company_id ?? 7,
                 'status' => 'Active',
                 'blood_group' => $request->input('blood_group', 'B+'),

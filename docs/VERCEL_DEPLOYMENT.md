@@ -24,7 +24,7 @@ This guide details how to deploy the **HRM Laravel 13 API Backend** to **Vercel*
 2. Go to [vercel.com](https://vercel.com) and click **"Add New..."** > **"Project"**.
 3. Import your repository.
 4. In the **Configure Project** screen:
-   - **Project Name**: e.g., `smart-hrm-backend`
+   - **Project Name**: e.g., `hrm-backend`
    - **Framework Preset**: Select **`Other`**
    - **Root Directory**: Click **Edit** and choose **`backend`**
    - **Build & Development Settings**: Leave blank (handled by `vercel.json`)
