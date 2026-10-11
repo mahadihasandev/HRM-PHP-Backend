@@ -17,10 +17,10 @@ class FilterController extends BaseApiController
         return response()->json([
             'status' => true,
             'data' => [
-                ['id' => 1, 'name' => 'Smart ERP Solutions Ltd.'],
+                ['id' => 1, 'name' => 'HRM ERP Solutions Ltd.'],
                 ['id' => 2, 'name' => 'Gulf Oil Bangladesh'],
                 ['id' => 3, 'name' => 'RM Carpet Limited'],
-                ['id' => 7, 'name' => 'Smart Trims & Packaging'],
+                ['id' => 7, 'name' => 'HRM Trims & Packaging'],
             ],
         ]);
     }

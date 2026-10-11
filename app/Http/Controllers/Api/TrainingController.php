@@ -34,7 +34,7 @@ class TrainingController extends BaseApiController
         $title = $request->input('title', 'Corporate Training Program');
         $startDate = $request->input('start_date', date('Y-m-d'));
         $endDate = $request->input('end_date', date('Y-m-d', strtotime('+3 days')));
-        $venue = $request->input('venue', 'Smart Corporate HQ');
+        $venue = $request->input('venue', 'HRM Corporate HQ');
         $duration = $request->input('duration', '3 Days');
         $trainer = $request->input('trainer', 'Lead Specialist');
         $message = $request->input('message');

@@ -9,7 +9,7 @@ INSERT INTO employees (
     created_at, updated_at
 ) VALUES (
     100, 100, 'SMT-0001', 'System Administrator', 'admin@smarterp.biz', '01711000001', '01711000001',
-    'Chief Executive & Admin', 'Administration', 'Smart Technologies (BD) Ltd.', 7, 'Active', 'O+', 'Male',
+    'Chief Executive & Admin', 'Administration', 'HRM Technologies (BD) Ltd.', 7, 'Active', 'O+', 'Male',
     'Married', 'Islam', 120000, 60000, 12000,
     4000, 196000, 9996, 14600, 171404,
     datetime('now'), datetime('now')

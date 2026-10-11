@@ -157,8 +157,8 @@ class AuthController extends BaseApiController
 
         // Attempt sending email via configured mailer if available
         try {
-            \Illuminate\Support\Facades\Mail::raw("Your Smart HRM & ERP verification code is: {$code}. It expires in 15 minutes.", function ($message) use ($email) {
-                $message->to($email)->subject('Smart HRM & ERP - Email Verification Code');
+            \Illuminate\Support\Facades\Mail::raw("Your HRM & ERP verification code is: {$code}. It expires in 15 minutes.", function ($message) use ($email) {
+                $message->to($email)->subject('HRM & ERP - Email Verification Code');
             });
         } catch (\Throwable $e) {
             Log::error('Verification email delivery failed.');

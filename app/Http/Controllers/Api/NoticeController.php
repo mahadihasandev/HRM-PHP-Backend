@@ -37,7 +37,7 @@ class NoticeController extends BaseApiController
             'publish_at' => $request->input('publish_at', now()->toDateString()),
             'expire_at' => $request->input('expire_at', now()->addDays(30)->toDateString()),
             'department' => $request->input('department', 'All Departments'),
-            'company' => $request->input('company', 'Smart Technologies (BD) Ltd.'),
+            'company' => $request->input('company', 'HRM Technologies (BD) Ltd.'),
             'priority' => $request->input('priority', 'Normal'),
             'created_at' => now(),
             'updated_at' => now(),
