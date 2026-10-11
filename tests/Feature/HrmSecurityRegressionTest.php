@@ -118,12 +118,66 @@ class HrmSecurityRegressionTest extends TestCase
         $this->assertArrayNotHasKey('salary', $profile);
         $this->assertArrayNotHasKey('bank_informations', $profile);
     }
-    public function test_production_rejects_unscoped_legacy_modules_and_non_delivery_mailers(): void
+    public function test_production_rejects_unscoped_legacy_reads_and_writes_on_both_api_prefixes(): void
     {
         $this->app->detectEnvironment(fn () => 'production');
         $this->actingAs($this->employee('SELF'), 'sanctum');
-        $this->getJson('https://localhost/api/v1/hrm/hr-loan-list')->assertStatus(503);
-        $this->postJson('https://localhost/api/v1/hrm/notice-create', ['title' => 'Should not save'])->assertStatus(503);
-        $this->postJson('https://localhost/api/v1/auth/send-verification-code', ['email' => 'new@example.test'])->assertStatus(503);
+
+        foreach (['/api/v1', '/api'] as $prefix) {
+            foreach ([
+                '/hrm/hr-loan-list',
+                '/hrm/notice-list',
+                '/hrm/short-leave/list',
+                '/hrm/tour-plans',
+                '/hrm/tranings',
+                '/hrm/companies',
+                '/accounting/summary',
+                '/snd/dashboard',
+                '/sfm/target-dashboard',
+            ] as $route) {
+                $this->getJson('https://localhost'.$prefix.$route)
+                    ->assertStatus(503)
+                    ->assertJsonPath('message', 'This legacy module requires company-scoped implementation before production use.');
+            }
+            $this->postJson('https://localhost'.$prefix.'/hrm/notice-create', ['title' => 'Should not save'])->assertStatus(503);
+            $this->postJson('https://localhost'.$prefix.'/hrm/hr-loan-apply', ['amount' => 1000])->assertStatus(503);
+        }
+
+        $this->assertDatabaseCount('notices', 0);
+        $this->assertDatabaseCount('hr_loans', 0);
+    }
+
+    public function test_production_keeps_company_scoped_workflows_available(): void
+    {
+        $this->app->detectEnvironment(fn () => 'production');
+        $this->actingAs($this->employee('SELF'), 'sanctum');
+
+        foreach (['/api/v1', '/api'] as $prefix) {
+            foreach (['/hrm/profile', '/hrm/employees', '/hrm/leave-applications', '/hrm/check-today-attendance', '/hrm/factory/operations', '/hrm/payroll/runs', '/hrm/people/overview'] as $route) {
+                $this->getJson('https://localhost'.$prefix.$route)->assertOk();
+            }
+        }
+    }
+
+    public function test_legacy_previews_still_require_authentication_outside_production(): void
+    {
+        $this->app->detectEnvironment(fn () => 'local');
+        $this->getJson('/api/v1/hrm/hr-loan-list')->assertUnauthorized();
+        $this->actingAs($this->employee('SELF'), 'sanctum');
+        $this->getJson('/api/v1/hrm/hr-loan-list')->assertOk();
+    }
+
+    public function test_production_rejects_non_delivery_mailers_without_creating_codes(): void
+    {
+        $this->app->detectEnvironment(fn () => 'production');
+        foreach (['log', 'array'] as $mailer) {
+            config(['mail.default' => $mailer]);
+            foreach (['/api/v1', '/api'] as $prefix) {
+                $this->postJson('https://localhost'.$prefix.'/auth/send-verification-code', ['email' => 'new@example.test'])
+                    ->assertStatus(503)
+                    ->assertJsonPath('message', 'A delivery mailer must be configured.');
+            }
+        }
+        $this->assertDatabaseCount('email_verifications', 0);
     }
 }
