@@ -19,6 +19,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(\App\Repositories\Contracts\EmployeeEmailVerificationRepositoryInterface::class, \App\Repositories\Eloquent\EmployeeEmailVerificationRepository::class);
         $this->app->bind(PayrollRepositoryInterface::class, PayrollRepository::class);
         $this->app->bind(FactoryRepositoryInterface::class, FactoryRepository::class);
         $this->app->bind(PeopleRepositoryInterface::class, PeopleRepository::class);

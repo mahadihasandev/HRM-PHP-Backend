@@ -96,21 +96,14 @@ class EmployeeController extends BaseApiController
     /**
      * Create/Register a new employee into central database.
      */
-    public function store(Request $request): JsonResponse
+    public function store(\App\Http\Requests\StoreEmployeeRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:150',
-            'designation' => 'required|string|max:100',
-            'department' => 'required|string|max:100',
-            'email' => 'nullable|email|max:150|unique:employees,email|unique:users,email',
-            'phone' => 'nullable|string|max:50',
-            'password' => 'required|string|min:8',
-            'basic_salary' => 'required|numeric|min:0|max:999999999.99',
-            'bank_account_no' => ['nullable', 'string', 'regex:/^[0-9]{5,34}$/'],
-            'joining_date' => 'required|date',
-        ]);
+        $validated = $request->validated();
 
         return DB::transaction(function () use ($request, $validated): JsonResponse {
+            app(\App\Services\Employees\EmployeeEmailVerificationService::class)->consume(
+                (int) $request->user()->id, $validated['email'], $validated['email_verification_token'],
+            );
             $nextId = ((int) (DB::table('employees')->max('id') ?? 65)) + 1;
             $fullId = sprintf('SMT-%04d', $nextId);
 
@@ -123,16 +116,7 @@ class EmployeeController extends BaseApiController
             $tax = round($gross > 50000 ? ($gross - 50000) * 0.10 : 0, 2);
             $netPayable = $gross - $pf - $tax;
 
-            $rawEmail = $request->input('email');
-            if (! $rawEmail) {
-                $baseSlug = strtolower((string) preg_replace('/[^a-z0-9]/i', '', $validated['name']));
-                $rawEmail = ($baseSlug ?: strtolower(str_replace('-', '', $fullId))).'@smarterp.biz';
-            }
-
-            // Avoid duplicate email collisions
-            if (DB::table('employees')->where('email', $rawEmail)->exists()) {
-                $rawEmail = strtolower(str_replace('-', '', $fullId)).'@smarterp.biz';
-            }
+            $rawEmail = $validated['email'];
 
             $empData = [
                 'id' => $nextId,
@@ -173,22 +157,15 @@ class EmployeeController extends BaseApiController
 
             // Provision User account immediately so the employee is a user and can log in & punch
             $userPassword = $validated['password'];
-            User::create(
+            $user = User::create(
                 [
                     'email' => $rawEmail,
                     'name' => $validated['name'],
                     'password' => Hash::make($userPassword),
-                    'email_verified_at' => now(),
                 ]
             );
 
-            $verificationCode = $request->input('verification_code');
-            if ($verificationCode) {
-                DB::table('email_verifications')
-                    ->where('email', strtolower(trim($rawEmail)))
-                    ->where('code', trim((string) $verificationCode))
-                    ->update(['verified_at' => now(), 'updated_at' => now()]);
-            }
+            $user->forceFill(['email_verified_at' => now()])->save();
 
             return response()->json([
                 'status' => true,
