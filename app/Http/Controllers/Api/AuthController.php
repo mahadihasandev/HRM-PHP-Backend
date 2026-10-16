@@ -9,8 +9,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Symfony\Component\HttpFoundation\Response;
 
 class AuthController extends BaseApiController
@@ -131,90 +129,14 @@ class AuthController extends BaseApiController
         return $this->successResponse(null, 'Signed out successfully');
     }
 
-    /**
-     * Send a 6-digit email verification code.
-     */
-    public function sendVerificationCode(Request $request): JsonResponse
+    public function sendVerificationCode(\App\Http\Requests\SendEmployeeVerificationRequest $request, \App\Services\Employees\EmployeeEmailVerificationService $service): JsonResponse
     {
-        $validated = $request->validate([
-            'email' => 'required|email|max:150',
-        ]);
-
-        abort_if(app()->isProduction() && in_array(config('mail.default'), ['log', 'array'], true), 503, 'A delivery mailer must be configured.');
-        $email = strtolower(trim($validated['email']));
-        DB::table('email_verifications')->where('email', $email)->delete();
-        $code = sprintf('%06d', random_int(100000, 999999));
-        $expiresAt = now()->addMinutes(15);
-
-        // Record verification code in database
-        DB::table('email_verifications')->insert([
-            'email' => $email,
-            'code' => $code,
-            'expires_at' => $expiresAt,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        // Attempt sending email via configured mailer if available
-        try {
-            \Illuminate\Support\Facades\Mail::raw("Your HRM & ERP verification code is: {$code}. It expires in 15 minutes.", function ($message) use ($email) {
-                $message->to($email)->subject('HRM & ERP - Email Verification Code');
-            });
-        } catch (\Throwable $e) {
-            Log::error('Verification email delivery failed.');
-            DB::table('email_verifications')->where('email', $email)->where('code', $code)->delete();
-            return $this->errorResponse('Verification email could not be sent. Please contact your administrator.', 503);
-        }
-
-        return response()->json([
-            'status' => true,
-            'message' => "Verification code sent to {$email}. Please check your inbox or notification.",
-            'email' => $email,
-            // Verification codes must never be returned to the browser.
-            'expires_in_minutes' => 15,
-        ]);
+        return response()->json($service->send(new \App\DTOs\EmployeeEmailVerificationData((int) $request->user()->id, $request->validated('email'))));
     }
 
-    /**
-     * Verify the 6-digit email code.
-     */
-    public function verifyCode(Request $request): JsonResponse
+    public function verifyCode(\App\Http\Requests\VerifyEmployeeEmailRequest $request, \App\Services\Employees\EmployeeEmailVerificationService $service): JsonResponse
     {
-        $validated = $request->validate([
-            'email' => 'required|email|max:150',
-            'code' => 'required|string|min:4|max:10',
-        ]);
-
-        $email = strtolower(trim($validated['email']));
-        $code = trim((string) $validated['code']);
-
-        $record = DB::table('email_verifications')
-            ->where('email', $email)
-            ->where('code', $code)
-            ->where('expires_at', '>=', now())
-            ->orderByDesc('id')
-            ->first();
-
-        if (!$record) {
-            return response()->json([
-                'status' => false,
-                'verified' => false,
-                'message' => 'Invalid or expired verification code. Please request a new code.',
-            ], 422);
-        }
-
-        DB::table('email_verifications')
-            ->where('id', $record->id)
-            ->update([
-                'verified_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-        return response()->json([
-            'status' => true,
-            'verified' => true,
-            'message' => "Email {$email} verified successfully!",
-        ]);
+        return response()->json($service->verify(new \App\DTOs\EmployeeEmailVerificationData((int) $request->user()->id, $request->validated('email'), $request->validated('code'))));
     }
 
     /**

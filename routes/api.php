@@ -40,9 +40,9 @@ $registerHrmRoutes = function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1')->name('auth.login');
 
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1')->name('auth.register');
-    Route::post('/auth/send-verification-code', [AuthController::class, 'sendVerificationCode'])->middleware('throttle:5,1')->name('auth.send_code');
-    Route::post('/auth/verify-code', [AuthController::class, 'verifyCode'])->middleware('throttle:5,1')->name('auth.verify_code');
     Route::middleware(['auth:sanctum', \App\Http\Middleware\EmployeeContext::class])->group(function () {
+    Route::post('/auth/send-verification-code', [AuthController::class, 'sendVerificationCode'])->middleware(['throttle:5,1', EmployeeWriteAuthorization::class.':action.employees.create'])->name('auth.send_code');
+    Route::post('/auth/verify-code', [AuthController::class, 'verifyCode'])->middleware(['throttle:5,1', EmployeeWriteAuthorization::class.':action.employees.create'])->name('auth.verify_code');
     Route::post('/logout', [AuthController::class, 'logout'])->name('auth.logout');
     Route::post('/change-password', [AuthController::class, 'changePassword'])->name('auth.change_password');
     Route::get('/user', [AuthController::class, 'user'])->name('auth.user');

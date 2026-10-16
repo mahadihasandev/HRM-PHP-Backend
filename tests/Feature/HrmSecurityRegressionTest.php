@@ -81,10 +81,13 @@ class HrmSecurityRegressionTest extends TestCase
 
     public function test_verification_never_discloses_the_code_and_employee_creation_has_no_bank_default(): void
     {
-        $response = $this->postJson('/api/v1/auth/send-verification-code', ['email' => 'new@example.test'])->assertOk();
-        $this->assertArrayNotHasKey('dev_code', $response->json());
+        \Illuminate\Support\Facades\Mail::fake();
         $this->actingAs($this->employee('SELF'), 'sanctum');
-        $body = ['name' => 'New Worker', 'designation' => 'Operator', 'department' => 'Engineering', 'email' => 'worker@example.test', 'password' => 'long-worker-password', 'basic_salary' => 0, 'joining_date' => '2026-10-07'];
+        $response = $this->postJson('/api/v1/auth/send-verification-code', ['email' => 'worker@example.test'])->assertOk();
+        $this->assertArrayNotHasKey('dev_code', $response->json());
+        $mail = \Illuminate\Support\Facades\Mail::sent(\App\Mail\EmployeeVerificationCode::class)->first();
+        $token = $this->postJson('/api/v1/auth/verify-code', ['email' => 'worker@example.test', 'code' => $mail->code])->assertOk()->json('verification_token');
+        $body = ['name' => 'New Worker', 'designation' => 'Operator', 'department' => 'Engineering', 'email' => 'worker@example.test', 'password' => 'long-worker-password', 'basic_salary' => 0, 'joining_date' => '2026-10-07', 'email_verification_token' => $token];
         $this->postJson('/api/v1/hrm/employee-create', $body)->assertCreated()->assertJsonPath('data.bank_account_no', null)->assertJsonPath('data.basic_salary', 0);
         $this->postJson('/api/v1/hrm/employee-create', array_replace($body, ['password' => '1234']))->assertUnprocessable();
     }
@@ -169,6 +172,7 @@ class HrmSecurityRegressionTest extends TestCase
 
     public function test_production_rejects_non_delivery_mailers_without_creating_codes(): void
     {
+        $this->actingAs($this->employee('SELF'), 'sanctum');
         $this->app->detectEnvironment(fn () => 'production');
         foreach (['log', 'array'] as $mailer) {
             config(['mail.default' => $mailer]);
@@ -178,6 +182,6 @@ class HrmSecurityRegressionTest extends TestCase
                     ->assertJsonPath('message', 'A delivery mailer must be configured.');
             }
         }
-        $this->assertDatabaseCount('email_verifications', 0);
+        $this->assertDatabaseCount('employee_email_verifications', 0);
     }
 }
